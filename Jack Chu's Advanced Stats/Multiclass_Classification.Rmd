@@ -1,0 +1,223 @@
+---
+title: "Homework 5: Classification and its Multiclass Extension"
+author: "Jack Chu"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+There are six questions (30 total points) in this assignment. The minimum increment is 1 point. Please type in your answers directly in the R Markdown file. After completion, **successfully** knitr it as an html file. Submit <span style="color:red">**both**</span> the html file and the R Markdown file via Canvas. Please name the R Markdown file in the following format: LastName_FirstName_HW5.Rmd, e.g. Zhao_Zifeng_HW5.Rmd.
+
+
+## Credit Default Dataset [18 points]
+The credit default dataset contains information on ten thousand customers. The aim here is to predict which customers will default on their credit card debt. The data is stored in `Default.csv`. It contains 4 variables, `default`, `student`, `balance` and `income`. We would like to build several statistical models to predict the probability of `default` of a person with given personal information. The data description is as follows.
+
++ `default`: A factor with levels No and Yes indicating whether the customer defaulted on their debt
++ `student`: A factor with levels No and Yes indicating whether the customer is a student
++ `balance`: The average balance that the customer has remaining on their credit card after making their monthly payment
++ `income`: Income of customer
+
+
+###  **Q1 [6 points]** Data Partition and Exploration
+**Q1(a) [2 points]**
+Let's correctly read in the data in `Default.csv` and name it as `total_data`. 
+```{r Q1(a)}
+## Write code solution to Q1(a) here
+total_data <- read.csv('~/Downloads/Default.csv', stringsAsFactors=T)
+```
+
+
+**Q1(b) [2 points]**
+Among the 10000 customers in the dataset, how many of them default?
+```{r Q1(b)}
+## Write code solution to Q1(b) here
+table(total_data$default)
+```
+333 customers are default.
+
+**Q1(c) [2 points]**
+Let's partition the data in `total_data` into training **(60%)** and test data **(40%)** and store them as `R` objects `train_data` and `test_data` respectively. Use random seed **`set.seed(7)`**!
+```{r Q1(c)}
+## Write code solution to Q1(c) here
+set.seed(7)
+total_obs <- nrow(total_data)
+train_index <- sample(1:total_obs, 0.6*total_obs)
+train_data <- total_data[train_index,]
+test_data <- total_data[-train_index,]
+```
+
+
+### **Q2 [6 points]** Logistic Regression and GAM
+**Q2(a) [2 points]**
+Fit a logistic regression model of `default` w.r.t. all 3 predictors using the **training data**, name it `lm_full`.
+```{r Q2(a)}
+## Write code solution to Q2(a) here
+lm_full <- glm(default~., family='binomial', data=train_data)
+
+summary(lm_full)
+```
+
+
+**Q2(b) [2 points]**
+Perform backward selection of `lm_full` via BIC and name the new model `lm_bwd`. Is any variable removed?
+```{r Q2(b)}
+## Write code solution to Q2(b) here
+lm_bwd <- step(lm_full, direction='backward', k=log(nrow(train_data)))
+```
+Yes, income is removed.
+
+
+
+**Q2(c) [2 points]**
+Fit a GAM of `default` w.r.t. all 3 predictors using the **training data**, name it `gam1`. Let's use splines with **df=4** for the numerical predictors, which include `balance ` and `income`.
+```{r Q2(c)}
+## Write code solution to Q2(c) here
+library(gam)
+gam1 <- gam(default~student + s(balance) + s(income), family='binomial', data=train_data)
+```
+
+
+### **Q3 [6 points]** Model Evaluation (Prediction)
+**Q3(a) [2 points]**
+Use `lm_full` and `gam1` to generate probability predictions for `default` on the test data and store the predicted probability in `lm_full_pred` and `gam1_pred` respectively.
+```{r Q3(a)}
+## Write code solution to Q3(a) here
+library(caret)
+lm_full_pred <- predict(lm_full, newdata = test_data, type='response')
+gam1_pred <- predict(gam1, newdata = test_data, type='response')
+```
+
+
+**Q3(b) [2 points]**
+Use the `confusionMatrix()` function in the `R` package `caret` to evaluate the prediction performance of `lm_full` and `gam1`. What are the sensitivity of `lm_full` and `gam1`?
+```{r Q3(b)}
+## Write code solution to Q3(b) here
+lm_full_acc <- confusionMatrix(factor(ifelse(lm_full_pred>0.5, 'Yes', 'No')), test_data$default, positive='Yes')
+
+gam1_acc <- confusionMatrix(factor(ifelse(gam1_pred>0.5, 'Yes', 'No')), test_data$default, positive='Yes')
+
+print(lm_full_acc)
+
+print(gam1_acc)
+```
+Sensitivity:
+lm_full: 0.38211
+
+gam1: 0.35772
+
+**Q3(c) [2 points]**
+Note that the sensitivity of `lm_full` and `gam1` are in the range of 30-40%, which means that the models are having a hard time finding the customers that default. This is not surprising considering that most customers do NOT default. One way to improve sensitivity is to use a threshold **lower** than **0.5** to classify the customer. Let's use a new threshold **0.1**, i.e. we think a customer will default if the predicted probability of default > 0.1.
+
+Use **0.1** as the new classification threshold and calculate the sensitivity for `lm_full` and `gam1`. Did the sensitivity go up? What is the price we need to pay for increasing sensitivity?
+```{r Q3(c)}
+## Write code solution to Q3(c) here
+lm_full_acc <- confusionMatrix(factor(ifelse(lm_full_pred>0.1, 'Yes', 'No')), test_data$default, positive='Yes')
+
+gam1_acc <- confusionMatrix(factor(ifelse(gam1_pred>0.1, 'Yes', 'No')), test_data$default, positive='Yes')
+
+print(lm_full_acc)
+
+print(gam1_acc)
+
+```
+Yes, sensitivity goes up. The accuracy goes down.
+
+
+
+## Iris Dataset [12 points]
+The famous R.A. Fisher's iris dataset contains the measurements (in centimeters) of the variables sepal length and width and petal length and width, respectively, for 50 flowers from each of 3 species of iris. The species are Iris `setosa`, `versicolor`, and `virginica`.
+
+The data is distributed with `R`. It contains 5 variables, `Sepal.Length`, `Sepal.Width`, `Petal.Length`, `Petal.Width` and `Species`. We would like to build several statistical models to classify the species of a given iris based on its sepal length and width and petal length and width. The data description is as follows.
+
++ `Sepal.Length`: sepal length
++ `Sepal.Width`: sepal width
++ `Petal.Length`: petal length
++ `Petal.Width`: petal width
++ `Species`: species
+
+We first read in the data and partition the data in `total_data` into training **(50%)** and test data **(50%)** and store them as `R` objects `train_data` and `test_data` respectively.
+```{r iris data}
+library(caret)
+total_data <- iris
+set.seed(7)
+total_obs <- nrow(total_data)
+train_index <- sample(1:total_obs, 0.5*total_obs)
+train_data <- total_data[train_index,]
+test_data <- total_data[-train_index,]
+```
+
+
+### **Q4 [2 points]** Multinomial Logistic Regression
+Fit a multinomial logistic regression model of `Species` w.r.t. all 4 predictors using the **training data**, name it `lm1`.
+```{r Q4}
+## Write code solution to Q4 here
+library(nnet)
+lm1 <- multinom(Species~., data=train_data)
+```
+
+### **Q5 [4 points]** Multiclass Neural Networks
+Fit an NN model of `Species` w.r.t. all 4 predictors using the **training data**, name it `nn1`. For the architecture of NN, let's use one hidden layer with 4 hidden units.
+
+**Q5(a) [2 points]**
+Let's generate the **training dataset** that are needed for the estimation of NN using the function `model.matrix()` and store it in `x_train_nn`. In addition, use the `scale()` function to standardize the predictors by centering with mean and scaling with sd. Let's further combine the dependent variable `Species` with the standardized predictors `x_train_nn` generated. Let's further generate the **test dataset** that are needed for the out-of-sample prediction evaluation of NN using the function `model.matrix` and store it in `x_test_nn`. Use the `scale()` function to standardize the predictors by centering with mean and scaling with sd.
+
+```{r Q5(a)}
+## Write code solution to Q5(a) here
+x_train_nn <- model.matrix(~Sepal.Length + Sepal.Width + Petal.Length + Petal.Width, data=train_data)[,-1]
+# standardization
+x_mean <- apply(x_train_nn, 2, mean)
+x_sd <- apply(x_train_nn, 2, sd)
+x_train_nn <- scale(x_train_nn, center=x_mean, scale=x_sd)
+
+x_train_nn <- cbind.data.frame(train_data$Species, x_train_nn)
+colnames(x_train_nn)[1] <- 'Species'
+
+x_test_nn <- model.matrix(~Sepal.Length + Sepal.Width + Petal.Length + Petal.Width, data=test_data)[,-1]
+# standardization
+x_test_nn <- scale(x_test_nn, center=x_mean, scale=x_sd)
+```
+
+
+**Q5(b) [2 points]**
+Let's fit an NN that has one hidden layer with 4 hidden units and name it `nn1`. Make sure to use random seed **`set.seed(7)`**!
+```{r Q5(b)}
+## Write code solution to Q5(b) here
+library(neuralnet)
+set.seed(7)
+nn1 <- neuralnet(Species~., data=x_train_nn, linear.output=F, hidden=4)
+```
+
+
+### **Q6 [6 points]** Model Evaluation (Prediction)
+**Q6(a) [2 points]**
+Use `lm1` and `nn1` to generate probability predictions for `Species` on the test data and store the predicted probability in `lm1_pred` and `nn1_pred` respectively.
+```{r Q6(a)}
+## Write code solution to Q6(a) here
+class_labels <- levels(train_data$Species)
+# lm1
+lm1_pred <- predict(lm1, newdata=test_data, type='probs')
+
+nn1_pred <- predict(nn1, newdata=x_test_nn, type='response')
+```
+
+
+**Q6(b) [2 points]**
+Use the `confusionMatrix()` function in the `R` package `caret` to evaluate the prediction performance of `lm1` and `nn1`.
+```{r Q6(b)}
+## Write code solution to Q6(b) here
+library(caret)
+lm1_pred_class <- factor(class_labels[apply(lm1_pred, 1, which.max)])
+lm1_acc <- confusionMatrix(lm1_pred_class, reference=test_data$Species)
+lm1_acc
+
+nn1_pred_class <- factor(class_labels[apply(nn1_pred, 1, which.max)])
+nn1_acc <- confusionMatrix(nn1_pred_class, reference=test_data$Species)
+nn1_acc
+```
+
+
+**Q6(c) [2 points]**
+Which statistical model do you prefer, `lm1` or `nn1`? Give reasons. 
+
+Answer: 
+I prefer lm1 because it's a less complex model and with same accuracy as nn1.

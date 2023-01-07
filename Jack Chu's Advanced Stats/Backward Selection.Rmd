@@ -1,0 +1,203 @@
+---
+title: "Homework 2: Data Partition and Backward Selection"
+author: "Jack Chu"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+There are six questions (30 total points) in this assignment. The minimum increment is 1 point. Please type in your answers directly in the R Markdown file. After completion, **successfully** knitr it as an html file. Submit <span style="color:red">**both**</span>  the html file and the R Markdown file via Canvas. Please name the R Markdown file in the following format: LastName_FirstName_HW2.Rmd, e.g. Zhao_Zifeng_HW2.Rmd.
+
+
+## Used Car Dataset [12 points]
+The used car dataset is the one we analyzed in class. Let's read in the data stored in `UsedCar.csv` and further partition the data into training and test data. Note that we use the same random seed `set.seed(7)` as in class to ensure reproducibility.
+
+```{r chunk1}
+total_data <- read.csv("~/Downloads/UsedCar.csv", header=T, stringsAsFactors=T)
+set.seed(7)
+total_obs <- dim(total_data)[1]
+# Data partition / Sample splitting
+train_data_indices <- sample(1:total_obs, 0.8*total_obs)
+train_data <- total_data[train_data_indices,]
+test_data <- total_data[-train_data_indices,]
+# Record the size of training data and test data
+train_obs <- dim(train_data)[1]
+test_obs <- dim(test_data)[1]
+```
+
+
+### **Q1 [3 points]** Model Estimation
+Instead of building linear regression models on the log-scale Price, let's build linear regression models for the original scale of Price, i.e. without log transformation to correct the right-skewness of Price.
+
+**Q1(a) [2 points]**
+Fit a linear regression model of **original scale** Price w.r.t. all 10 predictors using the **training data**, name it `lm_full`.
+```{r Q1(a)}
+## Write code solution to Q1(a) here
+lm_full <- lm(Price~Age+Mileage+Fuel_Type+HP+Metallic+Automatic+CC+Doors+Quarterly_Tax+Weight, data=train_data)
+```
+
+**Q1(b) [1 points]**
+Check the estimated coefficient for `Mileage`, how do we interpret it?
+```{r Q1(b)}
+## Write code solution to Q1(b) here
+summary(lm_full)
+```
+
+Answer: 
+When the mileage goes up by 1 unit, the price will then drop -1.670e-02 with all the other equal the same.
+
+### **Q2 [4 points]** Backward Selection with BIC
+
+**Q2(a) [2 points]**
+Perform backward selection for `lm_full` with **BIC** using the function `step()` and name the selected model `lm_bwd`. Make sure you use the correct **`k`** argument in the `step()` function.
+```{r Q2(a)}
+## Write code solution to Q2(a) here
+lm_bwd <- step(lm_full, direction='backward', k=log(train_obs))
+```
+
+**Q2(b) [2 points]**
+Examine the selected model in `lm_bwd`, list all the predictors that are eliminated during the backward selection process.
+```{r Q2(b)}
+## Write code solution to Q2(b) here
+summary(lm_bwd)
+```
+
+Answer: 
+Metallic + Automatic + CC + Doors are removed
+
+### **Q3 [5 points]** Model Evaluation (Prediction)
+
+**Q3(a) [2 points]**
+Use `lm_full` and `lm_bwd` to generate predictions for Price on the test data and store the prediction in `lm_full_pred` and `lm_bwd_pred` respectively.
+```{r Q3(a)}
+## Write code solution to Q3(a) here
+lm_full_pred <- predict(lm_full, newdata=test_data)
+lm_bwd_pred <- predict(lm_bwd, newdata=test_data)
+```
+
+**Q3(b) [2 points]**
+Use the `R` package `forecast` to evaluate the prediction performance of `lm_full_pred` and `lm_bwd_pred`. What are the MAE for `lm_full` and `lm_bwd`?
+```{r Q3(b)}
+library(forecast)
+
+accuracy(lm_full_pred, test_data$Price)
+
+accuracy(lm_bwd_pred, test_data$Price)
+```
+
+Answer:
+MAE for lm_full is 1058.757 and MAE for lm_bwd is 1069.966.
+
+
+**Q3(c) [1 points]**
+Recall from the in-class exercise that the MAE made by `lm_full` with log-transformation are `950.0841`. Compare with the MAE made by `lm_full` in Q3(b) without log-transformation. Does log-transformation help improve out-of-sample prediction performance?
+
+Answer:
+Yes, since the MAE with log-transformation is smaller.
+
+
+## Car Seat Sales Dataset [18 points]
+The car seat sales dataset is the one we analyzed in HW1. It contains sales of child car seats at 400 different stores and the data is stored in `Carseats.csv`. It contains 9 variables, `Sales`, `CompPrice`, `Income`, `Advertising`, `Population`, `Price`, `ShelveLoc`, `Age` and `Urban`. We would like to build a linear regression model to predict `Sales` at a planned new store. The data description is as follows.
+
++ `Sales`: Unit sales (in thousands) at each location
++ `CompPrice`: Price charged by competitor at each location
++ `Income`: Community income level (in thousands of dollars)
++ `Advertising`: Local advertising budget for company at each location (in thousands of dollars)
++ `Population`: Population size in region (in thousands)
++ `Price`: Price company charges for car seats at each site
++ `ShelveLoc`: A factor with levels Bad, Good and Medium indicating the quality of the shelving location for the car seats at each site
++ `Age`: Average age of the local population
++ `Urban`: A factor with levels No and Yes to indicate whether the store is in an urban or rural location
+
+
+###  **Q4 [5 points]** Data Partition
+**Q4(a) [2 points]**
+Let's correctly read in the data in `Carseats.csv` and name it as `total_data`. 
+```{r Q4(a)}
+## Write code solution to Q4(a) here
+total_data <- read.csv("~/Downloads/Carseats.csv", header=T, stringsAsFactors=T)
+```
+
+**Q4(b) [3 points]**
+Let's partition the data in `total_data` into training **(80%)** and test data **(20%)** and store them as `R` objects `train_data` and `test_data` respectively. Use random seed **`set.seed(7)`**!
+```{r Q4(b)}
+## Write code solution to Q4(b) here
+set.seed(7)
+total_obs <- dim(total_data)[1]
+# Data partition / Sample splitting
+train_data_indices <- sample(1:total_obs, 0.8*total_obs)
+train_data <- total_data[train_data_indices,]
+test_data <- total_data[-train_data_indices,]
+# Record the size of training data and test data
+train_obs <- dim(train_data)[1]
+test_obs <- dim(test_data)[1]
+```
+
+### **Q5 [8 points]** Model Estimation and Backward Selection
+
+**Q5(a) [2 points]**
+Fit a linear regression model of **original scale** Sales w.r.t. all 8 predictors using the **training data**, name it `lm_full`.
+```{r Q5(a)}
+## Write code solution to Q5(a) here
+lm_full <- lm(Sales~., data= train_data)
+summary(lm_full)
+```
+
+**Q5(b) [2 points]**
+Perform backward selection for `lm_full` with **BIC** using the function `step()` and name the selected model `lm_bwd`. Make sure you use the correct **`k`** argument in the `step()` function.
+```{r Q5(b)}
+## Write code solution to Q5(b) here
+lm_bwd <- step(lm_full, direction='backward', k=log(train_obs))
+```
+
+
+**Q5(c) [2 points]**
+Examine the printout of the `step()` function in Q5(b), what is the first predictor removed in the backward selection?
+
+Answer:
+Population
+
+
+**Q5(d) [2 points]**
+Examine the selected model in `lm_bwd`, list all the predictors that are eliminated during the backward selection process.
+```{r Q5(c)}
+summary(lm_bwd)
+```
+
+Answer: 
+Population + Urban are eliminated
+
+
+### **Q6 [5 points]** Model Evaluation (Prediction)
+**Q6(a) [2 points]**
+Use `lm_full` and `lm_bwd` to generate predictions for Sales on the test data and store the prediction in `lm_full_pred` and `lm_bwd_pred` respectively.
+```{r Q6(a)}
+## Write code solution to Q6(a) here
+lm_full_pred <- predict(lm_full, newdata=test_data)
+lm_bwd_pred <- predict(lm_bwd, newdata=test_data)
+```
+
+**Q6(b) [2 points]**
+Use the `R` package `forecast` to evaluate the prediction performance of `lm_full_pred` and `lm_bwd_pred`. What are the MAE for `lm_full` and `lm_bwd`?
+```{r Q6(b)}
+## Write code solution to Q6(b) here
+library(forecast)
+
+accuracy(lm_full_pred, test_data$Sales)
+
+accuracy(lm_bwd_pred, test_data$Sales)
+
+BIC(lm_full)
+BIC(lm_bwd)
+```
+
+Answer:
+MAE for lm_full is 15118.75
+MAE for lm_bwd is 15145.27
+
+
+**Q6(c) [1 points]**
+Which statistical model do you prefer, `lm_full` or `lm_bwd`? Give reasons.
+
+Answer:
+I prefer lm_bwd because it is a simpler model and with smaller BIC.

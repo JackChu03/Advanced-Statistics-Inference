@@ -1,0 +1,178 @@
+---
+title: "Homework 1: Linear Regression"
+author: "Jack Chu"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+There are six questions (30 total points) in this assignment. The minimum increment is 1 point. Please type in your answers directly in the R Markdown file. After completion, **successfully** knitr it as an html file. Submit <span style="color:red">**both**</span>  the html file and the R Markdown file via Canvas. Please name the R Markdown file in the following format: LastName_FirstName_HW1.Rmd, e.g. Zhao_Zifeng_HW1.Rmd.
+
+
+## Used Car Dataset [9 points]
+The used car dataset is the one we analyzed in class. Let's read in the data stored in `UsedCar.csv`.
+```{r chunk1}
+library(forecast)
+total_data <- read.csv("~/Documents/ND R class/Advanced Stats/sessin1/UsedCar.csv", header=T, stringsAsFactors = T)
+```
+
+### **Q1 [2 points]** 
+Since the dependent variable `Price` is severely right-skewed, create a log-transformation of `Price` and store it as a new variable named `Log_price` within the data.frame `total_data`.
+```{r Q1}
+## Write code solution to Q1 here
+total_data$Log_price <- log(total_data$Price+1)
+```
+
+
+### **Q2 [7 points]** 
+Fit a linear regression model of Log_price w.r.t. two predictors Age and Mileage, name it `lm_short`.
+```{r Q2}
+## Fit the lm_short model here
+lm_short <- lm(Log_price~Age+Mileage, data=total_data)
+```
+
+
+**Q2(a) [2 points]** What is the $R^2$ of `lm_short`? What are the (in-sample) MAE and RMSE of `lm_short`?
+```{r Q2(a)}
+## Write code solution to Q2(a) here
+TSS <- sum((total_data$Log_price-mean(total_data$Log_price))^2)
+RSS <- sum((total_data$Log_price-lm_short$fitted.values)^2)
+## Calculate R^2
+r_square = 1- (RSS/ TSS)
+r_square
+accuracy(lm_short$fitted.values, total_data$Log_price)
+```
+
+Answer: 
+$R^2$: 0.805469
+MAE: 0.09850018
+RMSE: 0.1305951
+
+
+**Q2(b) [2 point]** What is the estimated coefficient of `lm_short` for Age and Mileage?
+```{r Q2(b)}
+## Write code solution to Q2(b) here
+age_coefficient <- lm_short$coefficients[2]
+age_coefficient 
+mileage_coefficient <- lm_short$coefficients[3]
+mileage_coefficient
+```
+
+
+
+**Q2(c) [3 points]** How should we interpret the estimated coefficient of Age at the log-scale and the original scale of Price?
+
+```{r}
+lm_original_short <- lm(Price~Age+Mileage, data=total_data)
+```
+
+Answer:
+log: When the age increase by 1 year, the price will decrease $1.22 on average for all else being equal.
+original: When the age increase by 1 year, the price will decrease $154.1492 on average for all else being equal.
+
+
+
+## Car Seat Sales Dataset [21 points]
+The car seat sales dataset contains sales of child car seats at 400 different stores and the data is stored in `Carseats.csv`. It contains 9 variables, `Sales`, `CompPrice`, `Income`, `Advertising`, `Population`, `Price`, `ShelveLoc`, `Age` and `Urban`. We would like to build a linear regression model to predict `Sales` at a planned new store. The data description is as follows.
+
++ `Sales`: Unit sales (in thousands) at each location
++ `CompPrice`: Price charged by competitor at each location
++ `Income`: Community income level (in thousands of dollars)
++ `Advertising`: Local advertising budget for company at each location (in thousands of dollars)
++ `Population`: Population size in region (in thousands)
++ `Price`: Price company charges for car seats at each site
++ `ShelveLoc`: A factor with levels Bad, Good and Medium indicating the quality of the shelving location for the car seats at each site
++ `Age`: Average age of the local population
++ `Urban`: A factor with levels No and Yes to indicate whether the store is in an urban or rural location
+
+###  **Q4 [2 points]**
+Which variable is the dependent variable? Which predictors are categorical variables?
+
+Answer:dependent variable is sales and categorical variables are CompPrice, Income, Advertising, Population, Price, ShelveLoc, Age and Urban.
+
+
+### **Q5 [9 points]**
+Let's read in the data and perform visualization to get a better sense of the data.
+
+**Q5(a) [2 points]** Correctly read in the data stored at `Carseats.csv`.
+```{r Q5(a)}
+## Write code solution to Q5(a) here
+seats_data <- read.csv("~/Documents/ND R class/Advanced Stats/session2/Carseats.csv", header=T, stringsAsFactors = T)
+```
+
+
+**Q5(b) [2 points]** Produce a scatterplot between `Sales` and `Price`. What is the general pattern from the scatterplot?
+```{r Q5(b)}
+plot(seats_data$Sales, seats_data$Price, ylab='Price', xlab='Sales',
+     main='Price v.s. Sales')
+```
+
+Answer:
+When the sales go up, the price tend to go down in general.
+
+
+**Q5(c) [2 points]** Produce a boxplot between `Sales` and `ShelveLoc`. What is the general pattern from the boxplot?
+```{r Q5(c)}
+## Write code solution to Q5(c) here
+boxplot(seats_data$Sales~seats_data$ShelveLoc)
+```
+
+Answer:
+Quality Good shelving location has the best mean sales and then medium has the second best mean sales and then bad has the least mean sales
+
+
+**Q5(d) [3 points]** Produce a histogram of `Sales`. Is `Sales` severely right-skewed?
+```{r Q5(d)}
+## Write code solution to Q5(d) here
+hist(seats_data$Sales, main='Histogram of Sales', xlab='')
+```
+
+Answer:
+No
+
+### **Q6 [10 points]**
+
+**Q6(a) [4 points]** Fit a linear regression model of the original scale `Sales` w.r.t. all the predictors available in the dataset, name it `lm_full`. Take a look at the summary of `lm_full`.
+```{r Q6(a)}
+## Write code solution to Q6(a) here  
+seats_data$sales <- seats_data$Sales 
+lm_full <- lm(sales~., data=seats_data[,-1])
+summary(lm_full)
+```
+
+
+**Q6(b) [2 points]** What is the estimated coefficient of `lm_full` for CompPrice and Price? How should we interpret the estimated coefficients?
+```{r Q6(b)}
+## Write code solution to Q6(b) here
+CompPrice_co <- lm_full$coefficients[2]
+CompPrice_co
+Price_co <- lm_full$coefficients[6]
+Price_co
+```
+
+Answer:
+CompPrice: When the comp_price increases 1, the sales will increase 0.0927 on average for all else being equal.
+Price: When the price increases 1, the sales will decrease 0.0954 on average for all else being equal.
+
+
+
+**Q6(c) [2 points]** Which predictor(s) are not statistically significant in the model?
+
+Answer: Population
+
+
+**Q6(d) [2 points]** What is the $R^2$ of `lm_full`? What are the (in-sample) MAE and RMSE of `lm_full`?
+```{r Q6(d)}
+## Write code solution to Q6(d) here
+TSS <- sum((seats_data$sales-mean(seats_data$sales))^2)
+RSS <- sum((seats_data$sales-lm_full$fitted.values)^2)
+## Calculate R^2
+r_square = 1- (RSS/ TSS)
+r_square
+accuracy(lm_full$fitted.values, seats_data$sales)
+```
+
+Answer: 
+$R^2$: 0.8726193
+MAE: 0.805898
+RMSE: 1.006678 

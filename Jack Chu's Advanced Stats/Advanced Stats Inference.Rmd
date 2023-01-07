@@ -1,0 +1,259 @@
+---
+title: "Final Exam"
+author: "Jack"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+
+There are five questions (50 total points). Please type in your answers directly in the R Markdown file. After completion, **successfully** knitr it as an html file. Submit <span style="color:red">**both**</span> the html file and the R Markdown file via Canvas. Please name the R Markdown file in the following format: LastName_FirstName_Final.Rmd, e.g. Zhao_Zifeng_Final.Rmd.
+
+
+## NYZ Times Dataset (50 points)
+NYZ Times is a newspaper publishing company. The company maintains a dataset on their last marketing campaigns for promoting online subscription. For each individual customer, the dataset contains the campaign result (Subscriber = Yes/No) and the corresponding customer characteristics. There are 5,000 individual records in the dataset. It contains 7 variables `Age`, `Experience`, `Income`, `Family`, `AvgAmt`, `Education` and `Subscriber`. The data description is as follows.
+
++ `Age`: Age of the customer (in years)
++ `Experience`: Working experience of the customer (in years)
++ `Income`: Annual income of the customer ($000)
++ `Family`: Family size of the customer
++ `AvgAmt`: Average amount of online spending per month by the customer ($00)
++ `Education`: Education level of the customer (Bachelor / Master / PhD)
++ `Subscriber`: Did the marketing campaign convert the customer into a subscriber? (Yes / No)
+
+To promote online subscription more efficiently and effectively, NYZ Times decides to build several statistical models that can predict the conversion probability of each customer, and thus selectively send advertisement to potential customers that have higher conversion probability.
+
+```{r}
+rm(list=ls())
+```
+
+
+
+###  **Q1 [4 points]** Read in Data and Data Partition
+**Q1(a) [1 point]**
+Let's correctly read in the data in `NYZ_Times.csv` and name it as `total_data`. 
+```{r Q1(a)}
+## Write code solution to Q1(a) here
+total_data <- read.csv("~/Downloads/NYZ_Times.csv", header=T, stringsAsFactors=T)
+total_obs <- dim(total_data)[1]
+```
+
+
+**Q1(b) [1 point]** What is the conversion rate in the current dataset stored in `total_data`?
+```{r Q1(b)}
+## Write code solution to Q1(b) here
+table(total_data$Subscriber)
+crate <- 480/ (4520+480)
+crate
+```
+
+Answer: 0.096
+
+
+**Q1(c) [2 points]**
+Let's partition the data in `total_data` into training **(60%)** and test data **(40%)** and store them as `R` objects `train_data` and `test_data` respectively. Use random seed **`set.seed(7)`**!
+```{r Q1(c)}
+## Write code solution to Q1(c) here
+set.seed(7)
+train_index <- sample(1:total_obs, 0.6*total_obs)
+train_data <- total_data[train_index,]
+test_data <- total_data[-train_index,]
+```
+
+
+
+### **Q2 [10 points]** Logistic Regression
+**Q2(a) [4 points]**
+Fit a logistic regression model of the dependent variable `Subscriber` w.r.t. all 6 predictors `Age`, `Experience`, `Income`, `Family`, `AvgAmt`, `Education` using the training data, name it `lm_full`.
+```{r Q2(a)}
+## Write code solution to Q2(a) here
+lm_full <- glm(Subscriber~Age+Experience+Income+Family+AvgAmt+Education, family='binomial', data=train_data)
+```
+
+
+**Q2(b) [2 points]**
+Examine the estimation result of `lm_full`. Are customers with higher Income more likely to be Subscribers?
+```{r Q2(b)}
+## Write code solution to Q2(b) here
+summary(lm_full)
+```
+
+Answer:
+Yes
+
+**Q2(c) [2 points]**
+Let's further conduct a backward selection for `lm_full` via BIC using the `step()` function and store the final selected model as `lm_bwd`. Make sure you use the **correct** number for the argument `k` in the `step()` function.
+```{r Q2(c)}
+## Write code solution to Q2(c) here
+lm_bwd <- step(lm_full, direction='backward', k=log(nrow(train_data)))
+```
+
+
+**Q2(d) [2 points]** Which variables are removed during the backward selection?
+
+Answer:
+Experience and Age
+
+
+## **Q3 [8 points]** Generalized Additive Model
+**Q3(a) [4 points]**
+To capture potential nonlinear relationship, we fit a GAM model of the dependent variable `Subscriber` w.r.t. all 6 predictors `Age`, `Experience`, `Income`, `Family`, `AvgAmt`, `Education` using the training data, name it `gam1`. Let's use splines with **df=4** for all **5** numerical predictors, which include `Age`, `Experience`, `Income`, `Family` and `AvgAmt`.
+```{r Q3(a)}
+## Write code solution to Q3(a) here
+library(gam)
+gam1 <- gam(Subscriber~s(Age)+s(Experience)+s(Income)+s(Family)+s(AvgAmt)+Education, family='binomial', data=train_data)
+
+summary(gam1)
+```
+
+
+**Q3(b) [2 points]**
+Plot the estimated splines by `gam1`. For the predictor `Income`, is the relationship monotonic?
+```{r Q3(b)}
+## Write code solution to Q3(b) here
+plot(gam1)
+```
+
+Answer:
+Not at all, it's a curve.
+
+**Q3(c) [2 points]**
+Keeping everything else the same, further fit a GAM model but using splines with **df=2** for `Income`, name it `gam2`. Do we have a monotonic relationship for predictor `Income` now?
+```{r Q3(c)}
+## Write code solution to Q3(c) here
+gam2 <- gam(Subscriber~s(Age, df=2)+s(Experience, df=2)+s(Income, df=2)+s(Family, df=2)+s(AvgAmt, df=2)+Education, family='binomial', data=train_data)
+
+plot(gam2)
+```
+
+Answer:
+kind of, but it still looks like a curve.
+
+
+### **Q4 [12 points]** Neural Networks
+Fit an NN model of the dependent variable `Subscriber` w.r.t. all 6 predictors `Age`, `Experience`, `Income`, `Family`, `AvgAmt`, `Education` using the training data, name it `nn1`. For the architecture of NN, let's use one hidden layer with **6** hidden units.
+
+**Q4(a) [2 points]**
+Generate the training dataset that are needed for the estimation of NN using the function `model.matrix()` and store it in `x_train_nn`. In addition, use the `scale()` function to standardize the predictors by centering with mean and scaling with sd.
+```{r Q4(a)}
+## Write code solution to Q4(a) here
+x_train_nn <- model.matrix(~Age+Experience+Income+Family+AvgAmt+Education, data=train_data)[,-1]
+# standardization
+x_mean <- apply(x_train_nn, 2, mean)
+x_sd <- apply(x_train_nn, 2, sd)
+x_train_nn <- scale(x_train_nn, center=x_mean, scale=x_sd)
+```
+
+
+**Q4(b) [2 points]**
+Further combine the dependent variable `Subscriber` with the standardized predictors `x_train_nn` generated in Q4(a). Don't forget to rename the first column of the data frame as `Subscriber`.
+```{r Q4(b)}
+## Write code solution to Q4(b) here
+x_train_nn <- cbind.data.frame(train_data$Subscriber, x_train_nn)
+colnames(x_train_nn)[1] <- 'Subscriber'
+```
+
+
+**Q4(c) [2 points]**
+Generate the test dataset that are needed for the out-of-sample prediction evaluation of NN using the function `model.matrix` and store it in `x_test_nn`. Use the `scale()` function to standardize the predictors by centering with mean and scaling with sd as in Q4(a).
+```{r Q4(c)}
+## Write code solution to Q4(c) here
+x_test_nn <- model.matrix(~Age+Experience+Income+Family+AvgAmt+Education, data=test_data)[,-1]
+# standardization
+x_test_nn <- scale(x_test_nn, center=x_mean, scale=x_sd)
+```
+
+
+**Q4(d) [6 points]**
+Fit an NN that has one hidden layers with **6** hidden units and name it `nn1`. Make sure to use random seed **`set.seed(7)`**!
+```{r Q4(d)}
+## Write code solution to Q4(d) here
+set.seed(7)
+library(neuralnet)
+nn1 <- neuralnet(Subscriber=='Yes'~., data=x_train_nn, hidden=c(6), linear.output=F)
+```
+
+
+
+### **Q5 [16 points]** Model Evaluation (Prediction)
+**Q5(a) [2 points]**
+Use `lm_full`, `gam1` and `nn1` to generate probability predictions on the test data and store the prediction in `lm_full_pred`, `gam1_pred` and `nn1_pred` respectively.
+```{r Q5(a)}
+## Write code solution to Q5(a) here
+lm_full_pred <- predict(lm_full, newdata = test_data, type='response')
+  
+gam1_pred <- predict(gam1, newdata = test_data, type='response')
+  
+nn1_pred <- predict(nn1, newdata=x_test_nn)[,1]
+
+```
+
+
+**Q5(b) [2 points]**
+What are the predicted conversion probability of the **fifth** customer in the test data by `lm_full`, `gam1` and `nn1`, respectively?
+```{r Q5(b)}
+## Write code solution to Q5(b) here
+head(lm_full_pred)
+head(gam1_pred)
+head(nn1_pred)
+
+```
+
+Answer:
+lm_full: 3.106382e-02
+gam1: 1.688447e-03
+nn1: 1.294744e-21
+
+
+**Q5(c) [2 points]**
+Use the `R` package `caret` to evaluate the prediction performance of `lm_full`, `gam1` and `nn1` on the test data. What are the sensitivity of `lm_full`, `gam1` and `nn1`?
+```{r Q5(c)}
+## Write code solution to Q5(c) here
+library(caret)
+
+lm_full_acc <- confusionMatrix(factor(ifelse(lm_full_pred>0.5, 'Yes', 'No')), test_data$Subscriber, positive='Yes')
+
+gam1_acc <- confusionMatrix(factor(ifelse(gam1_pred>0.5, 'Yes', 'No')), test_data$Subscriber, positive='Yes')
+
+nn1_acc <- confusionMatrix(factor(ifelse(nn1_pred>0.5, 'Yes', 'No')), test_data$Subscriber, positive='Yes')
+
+print(lm_full_acc)
+
+print(gam1_acc)
+
+print(nn1_acc)
+```
+
+Answer:
+lm_full:0.6136
+gam1:0.7898
+nn1:0.8977
+
+
+
+**Q5(d) [4 points]**
+Based on the result in Q5(c), fill out the confusion matrix for `gam` and `nn1` on the written exam.
+
+
+**Q5(e) [2 points]** Further generate a lift chart to compare the prediction performance of `lm_full`, `gam1` and `nn1`. To make the lift chart look nice, do **NOT** use the `cuts` argument.
+
+```{r Q5(e)}
+## Write code solution to Q5(e) here
+lift_chart <- lift(test_data$Subscriber~lm_full_pred+gam1_pred+nn1_pred, class='Yes')
+xyplot(lift_chart, auto.key=list(columns=4), main='Lift Chart')
+```
+
+
+**Q5(f) [2 points]**
+Which model should we prefer if we only has the marketing budget to reach out to 20% of the customers? 
+
+Answer:
+We prefer NN1 since it has the highest percent of potential subscribed customers found when we 
+reach out to 20% of the customers.
+
+**Q5(g) [2 points]** 
+Take `lm_full` for example. If we want to capture more than 80% of all potential customers (i.e. customers who will become subscriber), what should be our minimum marketing budget? In other words, what is the percentage of customers we should reach out to? (The answer does not need to be exact, it only needs to be approximately correct.)
+
+Answer: Around 20%
+
+

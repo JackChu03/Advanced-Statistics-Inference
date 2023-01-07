@@ -1,0 +1,132 @@
+---
+title: "Homework 3: GAM and NN"
+author: "Jack Chu"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+There are four questions (30 total points) in this assignment. The minimum increment is 1 point. Please type in your answers directly in the R Markdown file. After completion, **successfully** knitr it as an html file. Submit <span style="color:red">**both**</span> the html file and the R Markdown file via Canvas. Please name the R Markdown file in the following format: LastName_FirstName_HW3.Rmd, e.g. Zhao_Zifeng_HW3.Rmd.
+
+
+## Credit Balance Dataset [30 points]
+The credit balance dataset contains information about 400 individuals' credit usage and other personal information. The data is stored in `Credit.csv`. It contains 8 variables, `Income`, `Limit`, `Rating`, `Cards`, `Age`, `Education`, `Student`, and `Balance`. We would like to build several statistical models to predict `Balance` (i.e. credit usage) of a person with given personal information. The data description is as follows.
+
++ `Income`: Income in $1,000's
++ `Limit`: Credit limit
++ `Rating`: Credit rating
++ `Cards`: Number of credit cards
++ `Age`: Age in years
++ `Education`: Education in years
++ `Student`: A factor with levels No and Yes indicating whether the individual is a student
++ `Balance`: Average credit card balance in $.
+
+
+###  **Q1 [4 points]** Data Partition
+**Q1(a) [2 points]**
+Let's correctly read in the data in `Credit.csv` and name it as `total_data`. 
+```{r Q1(a)}
+## Write code solution to Q1(a) here
+total_data <- read.csv("~/Downloads/Credit.csv", header=T, stringsAsFactors=T)
+```
+
+**Q1(b) [2 points]**
+Let's partition the data in `total_data` into training **(80%)** and test data **(20%)** and store them as `R` objects `train_data` and `test_data` respectively. Use random seed **`set.seed(7)`**!
+```{r Q1(b)}
+## Write code solution to Q1(b) here
+set.seed(7)
+total_obs <- dim(total_data)[1]
+train_data_indices <- sample(1:total_obs, 0.8*total_obs)
+train_data <- total_data[train_data_indices,]
+test_data <- total_data[-train_data_indices,]
+```
+
+### **Q2 [8 points]** Linear Regression and GAM
+**Q2(a) [3 points]**
+Fit a linear regression model of the **original scale** `Balance` w.r.t. all 7 predictors using the **training data**, name it `lm_full`.
+```{r Q2(a)}
+## Write code solution to Q2(a) here
+lm_full <- lm(Balance~., data=train_data)
+```
+
+**Q2(b) [5 points]**
+Fit a GAM of the **original scale** `Balance` w.r.t. all 7 predictors using the **training data**, name it `gam_full`. Let's use splines with **df=4** for all 6 numerical predictors, which include `Income`, `Limit`, `Rating`, `Cards`, `Age` and `Education`.
+```{r Q2(b)}
+library(gam)
+gam_full <- gam(Balance~ s(Income) + s(Limit) + s(Rating) + s(Cards) + s(Age) + s(Education) + Student, data=train_data)
+```
+
+### **Q3 [10 points]** Neural Networks
+Fit an NN of **standardized** `Balance` w.r.t. all 7 predictors using the **training data**, name it `nn_full`. For the architecture of NN, let's use two hidden layers with 4 hidden units in the first layer and 2 hidden units in the second layer.
+
+**Q3(a) [2 points]**
+Let's generate the **training dataset** that are needed for the estimation of NN using the function `model.matrix()` and store it in `x_train_nn`. In addition, use the `scale()` function to standardize the predictors by centering with mean and scaling with sd.
+```{r Q3(a)}
+## Write code solution to Q3(a) here
+x_train_nn <- model.matrix(~Income + Limit + Rating + Cards + Age + Education + Student, data=train_data)[,-1]
+# standardization
+x_mean <- apply(x_train_nn, 2, mean)
+x_sd <- apply(x_train_nn, 2, sd)
+x_train_nn <- scale(x_train_nn, center=x_mean, scale=x_sd)
+```
+
+**Q3(b) [2 points]**
+Let's further standardize the dependent variable `Balance` by dividing its maximum value. In addition, combine the standardized `Balance` with the standardized predictors `x_train_nn` generated in Q3(a). 
+```{r Q3(b)}
+## Write code solution to Q3(b) here
+y_max <- max(train_data$Balance)
+
+x_train_nn <- cbind.data.frame(train_data$Balance/y_max, x_train_nn)
+colnames(x_train_nn)[1] <- 'scaled_Balance'
+```
+
+**Q3(c) [2 points]**
+Let's generate the **test dataset** that are needed for the out-of-sample prediction evaluation of NN using the function `model.matrix` and store it in `x_test_nn`. Use the `scale()` function to standardize the predictors by centering with mean and scaling with sd as in Q3(a).
+```{r Q3(c)}
+## Write code solution to Q3(c) here
+x_test_nn <- model.matrix(~Income + Limit + Rating + Cards + Age + Education + Student, data=test_data)[,-1]
+# standardization
+x_test_nn <- scale(x_test_nn, center=x_mean, scale=x_sd)
+```
+
+**Q3(d) [4 points]**
+Let's fit an NN that has two hidden layers with 4 hidden units in the first layer and 2 hidden units in the second layer. Make sure to use random seed **`set.seed(7)`**!
+```{r Q3(d)}
+## Write code solution to Q3(d) here
+library(neuralnet)
+set.seed(7)
+nn <- neuralnet(scaled_Balance~., data=x_train_nn, hidden=c(4,2))
+```
+
+
+### **Q4 [8 points]** Model Evaluation (Prediction)
+**Q4(a) [4 points]**
+Use `lm_full`, `gam_full` and `nn_full` to generate predictions for `Balance` on the test data and store the prediction in `lm_pred`, `gam_pred` and `nn_pred` respectively. Note that for prediction based on `nn_full`, make sure to transform the prediction of **standardized scale** `Balance` back to the **original scale**.
+```{r Q4(a)}
+## Write code solution to Q4(a) here
+lm_pred <- predict(lm_full, newdata=test_data)
+
+gam_pred <- predict(gam_full, newdata=test_data)
+
+nn_pred <- predict(nn, newdata=x_test_nn)[,1]*y_max
+```
+
+**Q4(b) [2 points]**
+Use the `R` package `forecast` to evaluate the prediction performance of `lm_full`, `gam_full` and `nn_full`. What are the MAE for `lm_full`, `gam_full` and `nn_full`? (Note that MPE and MAPE may be undefined as some persons have `Balance`=0.)
+```{r Q4(b)}
+library(forecast)
+## Write code solution to Q4(b) here
+accuracy(lm_pred, test_data$Balance)
+accuracy(gam_pred, test_data$Balance)
+accuracy(nn_pred, test_data$Balance)
+```
+
+Answer:
+
+The MAE for lm_full is 84.22484, the MAE for gam_full is 51.80754, and the MAE for nn_full is 29.34589.
+
+**Q4(c) [2 points]**
+Which statistical model do you prefer, `lm_full` or `gam_full` or `nn_full`? Give reasons. 
+
+Answer: 
+I prefer nn_full model because it has the least MAE, though it is a way more complex model than the other two models.
